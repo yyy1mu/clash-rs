@@ -167,3 +167,7 @@ This command will generate a `clashrs.xcframework` file in the `build` directory
 ## ❤️ Inspired By
 - [Dreamacro/clash](https://github.com/Dreamacro/clash)
 - [eycorsican/leaf](https://github.com/eycorsican/leaf)
+
+## USTC iWAN
+
+内置 iWAN 凭证获取和原生出站。使用 `clash-rs iwan fetch` 登录，随后在 YAML 中设置 `type: iwan`、`config-dir` 和 `line`。详见 [iWAN 使用与迁移说明](docs/migration/iwan/README.md)。

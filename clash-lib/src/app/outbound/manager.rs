@@ -352,6 +352,10 @@ impl OutboundManager {
                         })
                         .ok()
                 }
+                OutboundProxyProtocol::Iwan(opts) => {
+                    Some(Arc::new(crate::proxy::iwan::Handler::new(opts))
+                        as AnyOutboundHandler)
+                }
                 OutboundProxyProtocol::Socks5(s) => {
                     let name = s.common_opts.name.clone();
                     s.try_into()

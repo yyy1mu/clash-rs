@@ -11,6 +11,11 @@ target/
 rust-project.json
 /build/
 docs
+!/docs/
+/docs/*
+!/docs/migration/
+/docs/migration/*
+!/docs/migration/iwan/
 .history
 
 # don't check in this real config

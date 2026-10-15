@@ -208,6 +208,21 @@ pub async fn get_dns_listener<X>(
 where
     X: DnsMessageExchanger + Sync + Send + Unpin + 'static,
 {
+    get_dns_listener_with_shutdown(listen, exchanger, cwd, std::future::pending())
+        .await
+}
+
+/// Build a listener whose shutdown waits for its sockets to be released.
+pub async fn get_dns_listener_with_shutdown<X, F>(
+    listen: DNSListenAddr,
+    exchanger: X,
+    cwd: &std::path::Path,
+    shutdown: F,
+) -> Option<futures::future::BoxFuture<'static, Result<(), DNSError>>>
+where
+    X: DnsMessageExchanger + Sync + Send + Unpin + 'static,
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
     let handler = DnsHandler { exchanger };
     let mut s = Server::new(handler);
 
@@ -367,7 +382,11 @@ where
 
     Some(Box::pin(async move {
         info!("starting DNS server");
-        l.server.block_until_done().await.map_err(|x| {
+        let result = tokio::select! {
+            result = l.server.block_until_done() => result,
+            _ = shutdown => l.server.shutdown_gracefully().await,
+        };
+        result.map_err(|x| {
             warn!("dns server error: {}", x);
             DNSError::Io(new_io_error(format!("dns server error: {x}")))
         })

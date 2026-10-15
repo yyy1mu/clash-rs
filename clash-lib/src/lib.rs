@@ -331,7 +331,7 @@ pub async fn start(
         // Listen for config reload signal and reload config
         while let Some((config, done)) = reload_rx.recv().await {
             info!("reloading config");
-            let config = match config.try_parse() {
+            let mut config = match config.try_parse() {
                 Ok(c) => c,
                 Err(e) => {
                     error!("failed to reload config: {}", e);
@@ -339,6 +339,12 @@ pub async fn start(
                 }
             };
 
+            // Verge may supply IPC only on the command line. Keep that control
+            // channel when a reloaded YAML file omits it.
+            if config.general.controller.external_controller_ipc.is_none() {
+                config.general.controller.external_controller_ipc =
+                    current_controller_cfg.external_controller_ipc.clone();
+            }
             let new_controller_cfg = config.general.controller.clone();
 
             let new_components =

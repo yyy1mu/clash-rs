@@ -459,6 +459,9 @@ impl Runner for TunRunner {
     }
 
     fn shutdown(&self) {
+        if !self.cfg.enable {
+            return;
+        }
         info!("shutting down tun runner");
         match routes::maybe_routes_clean_up(&self.cfg) {
             Ok(_) => {}

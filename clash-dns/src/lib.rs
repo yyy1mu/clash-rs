@@ -10,7 +10,7 @@ mod handler;
 mod tls;
 mod utils;
 
-pub use handler::{DNSError, get_dns_listener};
+pub use handler::{DNSError, get_dns_listener, get_dns_listener_with_shutdown};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]

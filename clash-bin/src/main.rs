@@ -108,6 +108,9 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "DIRECTORY")]
     directory: Option<PathBuf>,
 
+    #[command(subcommand)]
+    command: Option<Command>,
+
     #[clap(
         short,
         long,
@@ -173,6 +176,28 @@ struct Cli {
     strict_config: bool,
 }
 
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    /// Obtain credentials or list saved iWAN lines without starting Clash.
+    Iwan {
+        #[command(subcommand)]
+        action: IwanAction,
+    },
+}
+#[derive(clap::Subcommand, Debug)]
+enum IwanAction {
+    /// Log in through the browser and save servers.json.
+    Fetch {
+        #[arg(long, default_value = "~/.config/iwan")]
+        config_dir: String,
+    },
+    /// List saved lines without logging in or decrypting credentials.
+    List {
+        #[arg(long, default_value = "~/.config/iwan")]
+        config_dir: String,
+    },
+}
+
 /// Returns `true` if the env var is set to `1` or `true` (case-insensitive).
 fn env_truthy(name: &str) -> bool {
     match std::env::var(name) {
@@ -200,6 +225,28 @@ fn main() -> anyhow::Result<()> {
         })
         .collect();
     let mut cli = Cli::parse_from(args);
+
+    if let Some(Command::Iwan { action }) = cli.command {
+        match action {
+            IwanAction::Fetch { config_dir } => {
+                let config = clash_iwan::fetch::fetch_config()?;
+                clash_iwan::config::save_config(
+                    &clash_iwan::config::resolve_dir(&config_dir)
+                        .join("servers.json"),
+                    &config,
+                )?;
+                clash_iwan::fetch::print_servers(&config.servers);
+            }
+            IwanAction::List { config_dir } => {
+                let config = clash_iwan::config::load_config(
+                    &clash_iwan::config::resolve_dir(&config_dir)
+                        .join("servers.json"),
+                )?;
+                clash_iwan::fetch::print_servers(&config.servers);
+            }
+        }
+        return Ok(());
+    }
 
     // Either `--compatibility` OR `CLASH_RS_COMPATIBILITY_MODE=1|true` enables
     // compatibility mode. The env var is useful when the command line is fixed
@@ -287,7 +334,9 @@ fn main() -> anyhow::Result<()> {
     let mut config = parse_config()
         .inspect_err(|err| eprintln!("Failed to parse configuration: {err}"))?;
 
-    config.general.controller.external_controller_ipc = cli.controller_ipc;
+    if let Some(ipc) = cli.controller_ipc {
+        config.general.controller.external_controller_ipc = Some(ipc);
+    }
     if cli.compatibility {
         println!(
             "Compatibility mode enabled. This may cause some issues, but it is \
@@ -374,5 +423,37 @@ mod env_truthy_tests {
                 assert!(!env_truthy(KEY), "{v:?} should be falsy")
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod iwan_cli_tests {
+    use super::*;
+    #[test]
+    fn iwan_commands_keep_normal_clash_options_working() {
+        let cli = Cli::try_parse_from([
+            "clash-rs",
+            "iwan",
+            "fetch",
+            "--config-dir",
+            "/tmp/iwan",
+        ])
+        .unwrap();
+        assert!(
+            matches!(cli.command, Some(Command::Iwan { action: IwanAction::Fetch { config_dir } }) if config_dir == "/tmp/iwan")
+        );
+        assert!(matches!(
+            Cli::try_parse_from(["clash-rs", "iwan", "list"])
+                .unwrap()
+                .command,
+            Some(Command::Iwan {
+                action: IwanAction::List { .. }
+            })
+        ));
+        let cli =
+            Cli::try_parse_from(["clash-rs", "-f", "test.yaml", "-t"]).unwrap();
+        assert!(cli.command.is_none());
+        assert!(cli.test_config);
+        assert!(Cli::try_parse_from(["clash-rs", "iwan"]).is_err());
     }
 }

@@ -56,6 +56,8 @@ pub enum OutboundProxyProtocol {
     Ss(OutboundShadowsocks),
     #[serde(rename = "socks5")]
     Socks5(OutboundSocks5),
+    #[serde(rename = "iwan")]
+    Iwan(OutboundIwan),
     #[serde(rename = "anytls")]
     Anytls(OutboundAnytls),
     #[serde(rename = "trojan")]
@@ -93,6 +95,7 @@ impl OutboundProxyProtocol {
             OutboundProxyProtocol::Reject(reject) => &reject.name,
             #[cfg(feature = "shadowsocks")]
             OutboundProxyProtocol::Ss(ss) => &ss.common_opts.name,
+            OutboundProxyProtocol::Iwan(iwan) => &iwan.name,
             OutboundProxyProtocol::Socks5(socks5) => &socks5.common_opts.name,
             OutboundProxyProtocol::Anytls(anytls) => &anytls.common_opts.name,
             OutboundProxyProtocol::Trojan(trojan) => &trojan.common_opts.name,
@@ -138,6 +141,7 @@ impl Display for OutboundProxyProtocol {
         match self {
             #[cfg(feature = "shadowsocks")]
             OutboundProxyProtocol::Ss(_) => write!(f, "Shadowsocks"),
+            OutboundProxyProtocol::Iwan(_) => write!(f, "iWAN"),
             OutboundProxyProtocol::Socks5(_) => write!(f, "Socks5"),
             OutboundProxyProtocol::Anytls(_) => write!(f, "AnyTLS"),
             OutboundProxyProtocol::Direct(_) => write!(f, "{PROXY_DIRECT}"),
@@ -961,4 +965,23 @@ mod anytls_tests {
         assert!(msg.contains("line"), "expected line in message: {msg}");
         assert!(msg.contains("column"), "expected column in message: {msg}");
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct OutboundIwan {
+    pub name: String,
+    pub config_dir: String,
+    pub line: String,
+    pub bind: Option<String>,
+    #[serde(default = "iwan_mtu")]
+    pub mtu: u16,
+    #[serde(default = "iwan_encryption")]
+    pub encryption: u8,
+}
+fn iwan_mtu() -> u16 {
+    1380
+}
+fn iwan_encryption() -> u8 {
+    1
 }

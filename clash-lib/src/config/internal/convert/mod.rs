@@ -102,6 +102,17 @@ pub(super) fn convert(mut c: def::Config) -> Result<config::Config, crate::Error
                 ),
             ]),
             |mut rv, protocol| {
+                if let OutboundProxyProtocol::Iwan(opts) = &protocol {
+                    clash_iwan::session::Options {
+                        config_dir: opts.config_dir.clone(),
+                        line: opts.line.clone(),
+                        bind: opts.bind.clone(),
+                        mtu: opts.mtu,
+                        encryption: opts.encryption,
+                    }
+                    .validate()
+                    .map_err(|e| Error::InvalidConfig(e.to_string()))?;
+                }
                 let name = protocol.name().to_owned();
                 if rv.contains_key(name.as_str()) {
                     return Err(Error::InvalidConfig(format!(

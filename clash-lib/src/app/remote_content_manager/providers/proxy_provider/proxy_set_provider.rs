@@ -188,6 +188,10 @@ impl ProxySetProvider {
                                         s.try_into()?;
                                     Ok(Arc::new(h) as _)
                                 }
+                                OutboundProxyProtocol::Iwan(opts) => Ok(Arc::new(
+                                    crate::proxy::iwan::Handler::new(opts),
+                                )
+                                    as _),
                                 OutboundProxyProtocol::Socks5(s) => {
                                     let h: socks::outbound::Handler =
                                         s.try_into()?;

@@ -31,6 +31,7 @@ impl watfaq_dns::DnsMessageExchanger for DnsMessageExchanger {
 }
 
 pub struct DnsRunner {
+    task_handle: std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
     enable: bool,
     listener: DNSListenAddr,
     resolver: ThreadSafeDNSResolver,
@@ -48,6 +49,7 @@ impl DnsRunner {
         cancellation_token: Option<tokio_util::sync::CancellationToken>,
     ) -> Self {
         Self {
+            task_handle: std::sync::Mutex::new(None),
             enable,
             listener: listen,
             resolver,
@@ -69,28 +71,25 @@ impl Runner for DnsRunner {
         let cwd = self.cwd.clone();
         let cancellation_token = self.cancellation_token.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let h = DnsMessageExchanger { resolver };
-            let r = watfaq_dns::get_dns_listener(listen, h, &cwd).await;
+            let r = watfaq_dns::get_dns_listener_with_shutdown(
+                listen,
+                h,
+                &cwd,
+                cancellation_token.cancelled_owned(),
+            )
+            .await;
             if let Some(r) = r {
-                tokio::select! {
-                    res = r => {
-                        match res {
-                            Ok(()) => {},
-                            Err(err) => {
-                                error!("dns listener error: {}", err);
-                            }
-                        }
-                    },
-                    _ = cancellation_token.cancelled() => {
-                        info!("dns listener is closed");
-
-                    },
+                if let Err(err) = r.await {
+                    error!("dns listener error: {}", err);
                 }
+                info!("dns listener is closed");
             } else {
                 info!("dns listener: no listen addresses configured, skipping");
             }
         });
+        *self.task_handle.lock().unwrap() = Some(handle);
     }
 
     fn shutdown(&self) {
@@ -99,6 +98,14 @@ impl Runner for DnsRunner {
     }
 
     fn join(&self) -> futures::future::BoxFuture<'_, Result<(), crate::Error>> {
-        Box::pin(async move { Ok(()) })
+        Box::pin(async move {
+            let handle = self.task_handle.lock().unwrap().take();
+            if let Some(handle) = handle {
+                handle
+                    .await
+                    .map_err(|e| crate::Error::Operation(e.to_string()))?;
+            }
+            Ok(())
+        })
     }
 }

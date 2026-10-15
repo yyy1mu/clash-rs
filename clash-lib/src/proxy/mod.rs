@@ -39,6 +39,7 @@ pub(crate) mod datagram;
 pub mod anytls;
 pub mod converters;
 pub mod hysteria2;
+pub mod iwan;
 #[cfg(feature = "shadowquic")]
 pub mod shadowquic;
 #[cfg(feature = "shadowsocks")]
@@ -182,6 +183,7 @@ pub enum OutboundType {
     Tor,
     Tuic,
     Socks5,
+    Iwan,
     Hysteria2,
     Ssh,
     Tailscale,
@@ -210,6 +212,7 @@ impl Display for OutboundType {
             OutboundType::WireGuard => write!(f, "WireGuard"),
             OutboundType::Tor => write!(f, "Tor"),
             OutboundType::Tuic => write!(f, "Tuic"),
+            OutboundType::Iwan => write!(f, "iWAN"),
             OutboundType::Socks5 => write!(f, "Socks5"),
             OutboundType::Hysteria2 => write!(f, "Hysteria2"),
             OutboundType::Ssh => write!(f, "ssh"),
